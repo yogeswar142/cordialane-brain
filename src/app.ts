@@ -1,0 +1,36 @@
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import analyticsRoutes from './routes/v1/analytics.routes';
+import { errorHandler } from './middleware/errorHandler';
+import { rateLimiter } from './middleware/rateLimiter';
+
+const app = express();
+
+// Middleware
+app.use(helmet()); // Security headers
+app.use(cors()); // Allow cross-origin requests
+app.use(express.json()); // Parse JSON bodies
+app.use(morgan('dev')); // Logging
+
+// Rate limiter: 120 requests/minute per API key
+app.use('/api/v1', rateLimiter(120, 60_000));
+
+// API Routes
+app.use('/api/v1', analyticsRoutes);
+
+// Basic health check route
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', uptime: process.uptime() });
+});
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ success: false, error: 'Endpoint not found' });
+});
+
+// Global error handler (MUST be last)
+app.use(errorHandler);
+
+export default app;
