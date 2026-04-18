@@ -1,6 +1,14 @@
 import { Request, Response } from 'express';
-import { CommandEvent, UserEvent, GuildCount, Heartbeat } from '../models';
+import { Bot, CommandEvent, UserEvent, GuildCount, Heartbeat } from '../models';
 import type { TrackCommandInput, TrackUserInput, GuildCountInput, HeartbeatInput } from '../validators/schemas';
+
+const verifyBotOnData = async (botId: string) => {
+  // Efficient atomic update: flips to verified only if it wasn't already.
+  await Bot.updateOne(
+    { botId, verified: false },
+    { $set: { verified: true, verifiedAt: new Date() } }
+  ).catch((err) => console.error("Error auto-verifying bot:", err));
+};
 
 export const trackCommand = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -14,6 +22,8 @@ export const trackCommand = async (req: Request, res: Response): Promise<void> =
       metadata,
       timestamp: new Date(timestamp)
     });
+
+    await verifyBotOnData(botId);
 
     res.status(200).json({ success: true, message: 'Command event tracked' });
   } catch (error) {
@@ -34,6 +44,8 @@ export const trackUser = async (req: Request, res: Response): Promise<void> => {
       timestamp: new Date(timestamp)
     });
 
+    await verifyBotOnData(botId);
+
     res.status(200).json({ success: true, message: 'User event tracked' });
   } catch (error) {
     console.error('Error tracking user:', error);
@@ -51,6 +63,8 @@ export const postGuildCount = async (req: Request, res: Response): Promise<void>
       timestamp: new Date(timestamp)
     });
 
+    await verifyBotOnData(botId);
+
     res.status(200).json({ success: true, message: 'Guild count updated' });
   } catch (error) {
     console.error('Error updating guild count:', error);
@@ -67,6 +81,8 @@ export const heartbeat = async (req: Request, res: Response): Promise<void> => {
       uptime,
       timestamp: new Date(timestamp)
     });
+
+    await verifyBotOnData(botId);
 
     res.status(200).json({ success: true, message: 'Heartbeat received' });
   } catch (error) {

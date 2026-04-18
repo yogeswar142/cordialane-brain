@@ -9,6 +9,9 @@ export interface IBot extends Document {
   avatar?: string;
   isPublic: boolean;
   webhookUrl?: string;
+  verified: boolean;
+  verifiedAt?: Date;
+  addedByUserId: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -23,6 +26,9 @@ const botSchema = new Schema(
     avatar: { type: String },
     isPublic: { type: Boolean, default: false },
     webhookUrl: { type: String },
+    verified: { type: Boolean, default: false },
+    verifiedAt: { type: Date },
+    addedByUserId: { type: String, required: true },
   },
   { timestamps: true }
 );
