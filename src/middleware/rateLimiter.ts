@@ -48,7 +48,7 @@ export function rateLimiter(maxRequests = 120, windowMs = 60_000) {
     if (entry.count > maxRequests) {
       res.status(429).json({
         success: false,
-        error: 'Too many requests. Please slow down.',
+        error: 'Too many requests. Please increase your SDK batch_size or flush_interval to reduce API hits.',
         code: 'RATE_LIMIT_EXCEEDED',
         retryAfter: resetSeconds,
       });
