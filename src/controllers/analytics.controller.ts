@@ -2,12 +2,35 @@ import { Request, Response } from 'express';
 import { Bot, CommandEvent, UserEvent, GuildCount, Heartbeat } from '../models';
 import type { TrackCommandInput, TrackUserInput, GuildCountInput, HeartbeatInput } from '../validators/schemas';
 
-const verifyBotOnData = async (botId: string) => {
-  // Efficient atomic update: flips to verified only if it wasn't already.
-  await Bot.updateOne(
-    { botId, verified: false },
-    { $set: { verified: true, verifiedAt: new Date() } }
-  ).catch((err) => console.error("Error auto-verifying bot:", err));
+const VERIFICATION_THRESHOLD = 5;
+
+/**
+ * Increments API call count and auto-verifies the bot once it reaches
+ * the verification threshold (5 API calls). This proves the developer
+ * actually owns and operates the bot.
+ */
+const incrementApiCallsAndVerify = async (botId: string) => {
+  try {
+    // Atomic increment of apiCallCount
+    const bot = await Bot.findOneAndUpdate(
+      { botId },
+      { $inc: { apiCallCount: 1 } },
+      { new: true }
+    );
+
+    if (!bot) return;
+
+    // Auto-verify once threshold is reached (only if not already verified)
+    if (!bot.verified && bot.apiCallCount >= VERIFICATION_THRESHOLD) {
+      await Bot.updateOne(
+        { botId, verified: false },
+        { $set: { verified: true, verifiedAt: new Date() } }
+      );
+      console.log(`✅ Bot ${botId} (${bot.name}) auto-verified after ${bot.apiCallCount} API calls`);
+    }
+  } catch (err) {
+    console.error("Error incrementing API calls / verifying bot:", err);
+  }
 };
 
 export const trackCommand = async (req: Request, res: Response): Promise<void> => {
@@ -23,7 +46,7 @@ export const trackCommand = async (req: Request, res: Response): Promise<void> =
       timestamp: new Date(timestamp)
     });
 
-    await verifyBotOnData(botId);
+    await incrementApiCallsAndVerify(botId);
 
     res.status(200).json({ success: true, message: 'Command event tracked' });
   } catch (error) {
@@ -44,7 +67,7 @@ export const trackUser = async (req: Request, res: Response): Promise<void> => {
       timestamp: new Date(timestamp)
     });
 
-    await verifyBotOnData(botId);
+    await incrementApiCallsAndVerify(botId);
 
     res.status(200).json({ success: true, message: 'User event tracked' });
   } catch (error) {
@@ -63,7 +86,7 @@ export const postGuildCount = async (req: Request, res: Response): Promise<void>
       timestamp: new Date(timestamp)
     });
 
-    await verifyBotOnData(botId);
+    await incrementApiCallsAndVerify(botId);
 
     res.status(200).json({ success: true, message: 'Guild count updated' });
   } catch (error) {
@@ -82,7 +105,7 @@ export const heartbeat = async (req: Request, res: Response): Promise<void> => {
       timestamp: new Date(timestamp)
     });
 
-    await verifyBotOnData(botId);
+    await incrementApiCallsAndVerify(botId);
 
     res.status(200).json({ success: true, message: 'Heartbeat received' });
   } catch (error) {

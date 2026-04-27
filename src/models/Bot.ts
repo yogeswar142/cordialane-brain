@@ -11,6 +11,8 @@ export interface IBot extends Document {
   webhookUrl?: string;
   verified: boolean;
   verifiedAt?: Date;
+  apiCallCount: number;
+  apiKeyLastGenerated: Date;
   addedByUserId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -28,6 +30,8 @@ const botSchema = new Schema(
     webhookUrl: { type: String },
     verified: { type: Boolean, default: false },
     verifiedAt: { type: Date },
+    apiCallCount: { type: Number, default: 0 },
+    apiKeyLastGenerated: { type: Date, default: Date.now },
     addedByUserId: { type: String, required: true },
   },
   { timestamps: true }
