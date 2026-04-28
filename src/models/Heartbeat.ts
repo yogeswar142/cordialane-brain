@@ -2,6 +2,8 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IHeartbeat extends Document {
   botId: string;
+  shardId: number;
+  totalShards: number;
   uptime: number;
   timestamp: Date;
   createdAt: Date;
@@ -10,6 +12,8 @@ export interface IHeartbeat extends Document {
 const heartbeatSchema = new Schema(
   {
     botId: { type: String, required: true, index: true },
+    shardId: { type: Number, required: true, default: 0, index: true },
+    totalShards: { type: Number, required: true, default: 1 },
     uptime: { type: Number, required: true },
     timestamp: { type: Date, required: true, index: true },
   },
@@ -17,5 +21,6 @@ const heartbeatSchema = new Schema(
 );
 
 heartbeatSchema.index({ botId: 1, timestamp: -1 });
+heartbeatSchema.index({ botId: 1, shardId: 1, timestamp: -1 });
 
 export const Heartbeat = mongoose.models.Heartbeat || mongoose.model<IHeartbeat>('Heartbeat', heartbeatSchema);

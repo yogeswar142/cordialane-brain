@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireApiKey } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
 import { trackCommandSchema, trackUserSchema, guildCountSchema, heartbeatSchema, trackBatchSchema } from '../../validators/schemas';
-import { trackCommand, trackUser, postGuildCount, heartbeat, trackBatch } from '../../controllers/analytics.controller';
+import { trackCommand, trackUser, postGuildCount, heartbeat, trackBatch, getBotSummary } from '../../controllers/analytics.controller';
 
 const router = Router();
 
@@ -10,6 +10,7 @@ const router = Router();
 router.use(requireApiKey);
 
 // Routes with Zod validation middleware applied before controllers
+router.get('/bot/:id/summary', getBotSummary);
 router.post('/track-command', validate(trackCommandSchema), trackCommand);
 router.post('/track-user', validate(trackUserSchema), trackUser);
 router.post('/guild-count', validate(guildCountSchema), postGuildCount);

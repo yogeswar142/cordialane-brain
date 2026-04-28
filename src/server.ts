@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import app from './app';
+import { startShardMonitor } from './services/shardMonitor';
 
 // Load environment variables from .env
 dotenv.config();
@@ -18,6 +19,9 @@ const startServer = async () => {
     app.listen(PORT, () => {
       console.log(`🚀 Cordia API server is running on http://localhost:${PORT}`);
     });
+
+    // Start the background shard health monitor for webhook alerts
+    startShardMonitor();
   } catch (error) {
     console.error('❌ Failed to start server:', error);
     process.exit(1);

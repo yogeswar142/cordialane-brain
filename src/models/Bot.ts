@@ -13,6 +13,15 @@ export interface IBot extends Document {
   verifiedAt?: Date;
   apiCallCount: number;
   apiKeyLastGenerated: Date;
+  shards: {
+    id: number;
+    totalShards: number;
+    status: 'online' | 'lagging' | 'offline';
+    lastHeartbeat?: Date;
+    latencyMs?: number;
+    guildCount?: number;
+    alertedOffline?: boolean;
+  }[];
   addedByUserId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -32,6 +41,23 @@ const botSchema = new Schema(
     verifiedAt: { type: Date },
     apiCallCount: { type: Number, default: 0 },
     apiKeyLastGenerated: { type: Date, default: Date.now },
+    shards: {
+      type: [
+        new Schema(
+          {
+            id: { type: Number, required: true },
+            totalShards: { type: Number, required: true, default: 1 },
+            status: { type: String, enum: ['online', 'lagging', 'offline'], default: 'online' },
+            lastHeartbeat: { type: Date },
+            latencyMs: { type: Number },
+            guildCount: { type: Number },
+            alertedOffline: { type: Boolean, default: false },
+          },
+          { _id: false }
+        )
+      ],
+      default: []
+    },
     addedByUserId: { type: String, required: true },
   },
   { timestamps: true }
