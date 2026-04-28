@@ -15,10 +15,13 @@ const incrementApiCallsAndVerify = async (botId: string, amount: number = 1) => 
     const bot = await Bot.findOneAndUpdate(
       { botId },
       { $inc: { apiCallCount: amount } },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!bot) return;
+
+    // Log the API call with bot name for monitoring
+    console.log(`[API Call] Bot: ${bot.name} (${botId}) | Increment: ${amount}`);
 
     // Auto-verify once threshold is reached (only if not already verified)
     if (!bot.verified && bot.apiCallCount >= VERIFICATION_THRESHOLD) {
