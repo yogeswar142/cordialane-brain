@@ -131,19 +131,26 @@ export const trackBatch = async (req: Request, res: Response): Promise<void> => 
     const guildCounts: any[] = [];
     const heartbeats: any[] = [];
 
+    // Simple anti-spam: track unique users in this batch to prevent duplicates
+    const uniqueUsersInBatch = new Set<string>();
+
     events.forEach(event => {
       // Add botId and parse timestamp
       const data = { ...event, botId, timestamp: event.timestamp ? new Date(event.timestamp) : new Date() };
       
-      if (event.type === 'command') commands.push(data);
-      else if (event.type === 'user') users.push(data);
-      else if (event.type === 'guildCount') guildCounts.push(data);
-      else if (event.type === 'heartbeat') heartbeats.push(data);
-      // fallback if type is missing but specific fields are present
-      else if (event.command) commands.push(data);
-      else if (event.userId && event.action) users.push(data);
-      else if (event.count !== undefined) guildCounts.push(data);
-      else if (event.uptime !== undefined) heartbeats.push(data);
+      if (event.type === 'command') {
+        commands.push(data);
+      } else if (event.type === 'user' || (event.userId && event.action)) {
+        // Only add if we haven't seen this user in this specific batch yet
+        if (!uniqueUsersInBatch.has(data.userId)) {
+          users.push(data);
+          uniqueUsersInBatch.add(data.userId);
+        }
+      } else if (event.type === 'guildCount' || event.count !== undefined) {
+        guildCounts.push(data);
+      } else if (event.type === 'heartbeat' || event.uptime !== undefined) {
+        heartbeats.push(data);
+      }
     });
 
     const promises = [];
