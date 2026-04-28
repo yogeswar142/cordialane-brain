@@ -61,13 +61,18 @@ const upsertBotShardSnapshot = async (
     setOps['shards.$[shard].alertedOffline'] = false;
   }
 
-  const updated = await Bot.updateOne(
-    { botId },
-    { $set: setOps },
-    { arrayFilters: [{ 'shard.id': shardId }] }
-  );
+  try {
+    const updated = await Bot.updateOne(
+      { botId, shards: { $exists: true } },
+      { $set: setOps },
+      { arrayFilters: [{ 'shard.id': shardId }] }
+    );
 
-  if (updated.matchedCount > 0 && updated.modifiedCount > 0) return;
+    if (updated.matchedCount > 0 && updated.modifiedCount > 0) return;
+  } catch (err: any) {
+    // If the path still doesn't exist or other mongo error, fall through to push logic
+    console.error(`[Upsert Error] Falling back for bot ${botId}:`, err.message);
+  }
 
   await Bot.updateOne(
     { botId, 'shards.id': { $ne: shardId } },
