@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import analyticsRoutes from './routes/v1/analytics.routes';
+import authRoutes from './routes/v1/auth.routes';
 import { errorHandler } from './middleware/errorHandler';
 import { rateLimiter } from './middleware/rateLimiter';
 
@@ -19,6 +20,7 @@ app.use('/api/v1', rateLimiter(120, 60_000));
 
 // API Routes
 app.use('/api/v1', analyticsRoutes);
+app.use('/api/v1/auth', authRoutes);
 
 // Basic health check route
 app.get('/health', (req, res) => {
