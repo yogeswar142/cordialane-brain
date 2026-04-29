@@ -9,8 +9,8 @@ const DEFAULT_SHARD_ID = 0;
 const DEFAULT_TOTAL_SHARDS = 1;
 
 type ShardMetaInput = {
-  shardId?: number;
-  totalShards?: number;
+  shardId?: number | null;
+  totalShards?: number | null;
 };
 
 type NormalizedShardMeta = {
