@@ -284,20 +284,23 @@ export const trackBatch = async (req: Request, res: Response): Promise<void> => 
         timestamp: eventTimestamp,
       };
       
-      if (event.type === 'command') {
+      // Classify events by checking both `type` (JS SDK convention) and `event` (Python SDK convention)
+      const eventType = event.type || event.event;
+
+      if (eventType === 'command' || eventType === 'command_used' || (!eventType && event.command)) {
         commands.push(data);
-      } else if (event.type === 'user' || (event.userId && event.action)) {
+      } else if (eventType === 'user' || eventType === 'user_active' || (event.userId && event.action)) {
         // Only add if we haven't seen this user in this specific batch yet
         if (!uniqueUsersInBatch.has(data.userId)) {
           users.push(data);
           uniqueUsersInBatch.add(data.userId);
         }
-      } else if (event.type === 'guildCount' || event.count !== undefined) {
+      } else if (eventType === 'guildCount' || eventType === 'guild_count' || event.count !== undefined) {
         guildCounts.push(data);
         await upsertBotShardSnapshot(botId, normalizedShard.shardId, normalizedShard.totalShards, {
           guildCount: Number(event.count) || 0,
         });
-      } else if (event.type === 'heartbeat' || event.uptime !== undefined) {
+      } else if (eventType === 'heartbeat' || event.uptime !== undefined) {
         heartbeats.push(data);
         const latencyMs = Math.max(0, Date.now() - eventTimestamp.getTime());
         const status = latencyMs > 120000 ? 'offline' : latencyMs > 30000 ? 'lagging' : 'online';

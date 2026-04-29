@@ -28,3 +28,6 @@ Thumbs.db
 
 # Git AI script
 cm.sh
+
+# Internal reference docs (not for public repos)
+INTERNAL_API_REFERENCE.md
