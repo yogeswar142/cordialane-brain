@@ -19,8 +19,8 @@ type NormalizedShardMeta = {
 };
 
 const normalizeShardMeta = (input: ShardMetaInput): NormalizedShardMeta => ({
-  shardId: Number.isInteger(input.shardId) ? (input.shardId as number) : DEFAULT_SHARD_ID,
-  totalShards: Number.isInteger(input.totalShards) && (input.totalShards as number) > 0
+  shardId: (input.shardId !== null && Number.isInteger(input.shardId)) ? (input.shardId as number) : DEFAULT_SHARD_ID,
+  totalShards: (input.totalShards !== null && Number.isInteger(input.totalShards) && (input.totalShards as number) > 0)
     ? (input.totalShards as number)
     : DEFAULT_TOTAL_SHARDS,
 });
