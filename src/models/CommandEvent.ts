@@ -7,7 +7,6 @@ export interface ICommandEvent extends Document {
   command: string;
   userId?: string;
   guildId?: string;
-  metadata?: Record<string, any>;
   timestamp: Date;
   createdAt: Date;
 }
@@ -20,7 +19,6 @@ const commandEventSchema = new Schema(
     command: { type: String, required: true },
     userId: { type: String },
     guildId: { type: String },
-    metadata: { type: Schema.Types.Mixed },
     timestamp: { type: Date, required: true },
   },
   { timestamps: { createdAt: true, updatedAt: false } }

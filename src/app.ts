@@ -18,6 +18,11 @@ app.use(morgan('dev')); // Logging
 // Rate limiter: 120 requests/minute per API key
 app.use('/api/v1', rateLimiter(120, 60_000));
 
+// Backward compatibility: Catch unversioned legacy or incorrect endpoint calls
+app.post('/track-batch', (req, res) => {
+  res.redirect(307, '/api/v1/track-batch');
+});
+
 // API Routes
 app.use('/api/v1', analyticsRoutes);
 app.use('/api/v1/auth', authRoutes);

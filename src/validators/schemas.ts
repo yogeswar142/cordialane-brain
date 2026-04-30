@@ -13,7 +13,6 @@ export const trackCommandSchema = z.object({
   command: z.string().min(1, 'command must be a non-empty string'),
   userId: z.string().nullable().optional(),
   guildId: z.string().nullable().optional(),
-  metadata: z.record(z.string(), z.unknown()).nullable().optional(),
   timestamp: z.string().datetime({ message: 'timestamp must be a valid ISO 8601 date string' }),
   ...shardMetaSchema,
 });
@@ -106,7 +105,7 @@ export const trackBatchSchema = z.object({
   botId: z.string().min(1).optional(), // Optional on server to allow header fallback
   shardId: z.number().int().nonnegative().optional(),
   totalShards: z.number().int().positive().optional(),
-  events: z.array(batchEventSchema).min(1, 'events array must not be empty').max(500, 'batch size must not exceed 500 events'),
+  events: z.array(batchEventSchema).min(1, 'events array must not be empty').max(5000, 'batch size must not exceed 5000 events'),
 });
 
 export type TrackBatchInput = z.infer<typeof trackBatchSchema>;
