@@ -7,6 +7,35 @@ export const requireApiKey = async (req: Request, res: Response, next: NextFunct
     const authHeader = req.headers.authorization;
     // Try to get botId from header or from URL params (req.params.id)
     const botId = (req.headers['x-bot-id'] as string) || req.params.id;
+    const sdkVersion = req.headers['x-cordia-sdk-version'] as string | undefined;
+
+    // ─────────────────────────────────────────────────────────────
+    // 1. VERSION ENFORCEMENT (Mandatory v1.2.1+)
+    // ─────────────────────────────────────────────────────────────
+    // Allow summary requests from platform (browsers won't have this header)
+    const isDashboardRequest = req.method === 'GET' && req.path.includes('/summary');
+    
+    if (!isDashboardRequest) {
+      if (!sdkVersion) {
+        res.status(403).json({
+          success: false,
+          error: 'Missing SDK Version header. Please update your Cordia SDK to v1.2.2 or higher.',
+          code: 'SDK_VERSION_REQUIRED'
+        });
+        return;
+      }
+
+      const [major, minor, patch] = sdkVersion.split('.').map(Number);
+      // Reject anything below 1.2.1
+      if (major < 1 || (major === 1 && minor < 2) || (major === 1 && minor === 2 && patch < 1)) {
+        res.status(403).json({
+          success: false,
+          error: `SDK v${sdkVersion} is no longer supported due to architectural upgrades. Please update to v1.2.2.`,
+          code: 'SDK_VERSION_DEPRECATED'
+        });
+        return;
+      }
+    }
 
     if (!botId) {
       res.status(400).json({ 

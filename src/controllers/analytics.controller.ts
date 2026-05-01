@@ -371,9 +371,13 @@ export const getBotSummary = async (req: Request, res: Response): Promise<void> 
 
     // Legacy fallback for bots that never wrote shard snapshots.
     if (shards.length === 0) {
-      const [latestHeartbeat, latestGuildCount] = await Promise.all([
+      const [latestHeartbeat, shardGuildCounts] = await Promise.all([
         Heartbeat.findOne({ botId: requestedBotId }).sort({ timestamp: -1 }).lean() as Promise<{ timestamp: Date } | null>,
-        GuildCount.findOne({ botId: requestedBotId }).sort({ timestamp: -1 }).lean() as Promise<{ count: number } | null>,
+        GuildCount.aggregate([
+          { $match: { botId: requestedBotId } },
+          { $sort: { timestamp: -1 } },
+          { $group: { _id: '$shardId', latestCount: { $first: '$count' }, totalShards: { $first: '$totalShards' } } }
+        ])
       ]);
 
       const lastHeartbeat = latestHeartbeat?.timestamp;
@@ -386,14 +390,25 @@ export const getBotSummary = async (req: Request, res: Response): Promise<void> 
             ? 'lagging'
             : 'online';
 
-      shards = [{
-        id: 0,
-        totalShards: 1,
-        status,
-        lastHeartbeat,
-        latencyMs,
-        guildCount: latestGuildCount?.count ?? 0,
-      }];
+      if (shardGuildCounts.length > 0) {
+        shards = shardGuildCounts.map(s => ({
+          id: s._id ?? 0,
+          totalShards: s.totalShards ?? 1,
+          status,
+          lastHeartbeat,
+          latencyMs,
+          guildCount: s.latestCount ?? 0,
+        }));
+      } else {
+        shards = [{
+          id: 0,
+          totalShards: 1,
+          status,
+          lastHeartbeat,
+          latencyMs,
+          guildCount: 0,
+        }];
+      }
     }
 
     const totalGuildCount = shards.reduce((sum, shard) => sum + (shard.guildCount ?? 0), 0);
