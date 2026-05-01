@@ -28,7 +28,7 @@ async function aggregateForBot(botId: string, date: Date) {
   }
 
   // 2. Distributions (Top 10 Servers & Top 10 Commands)
-  const [topCommandsAgg, topServersAgg, localesAgg] = await Promise.all([
+  const [topCommandsAgg, topServersAgg, localesAgg, countriesAgg] = await Promise.all([
     CommandEvent.aggregate([
       { $match: { botId, timestamp: { $gte: startOfDay, $lte: endOfDay } } },
       { $group: { _id: '$command', count: { $sum: 1 } } },
@@ -44,6 +44,10 @@ async function aggregateForBot(botId: string, date: Date) {
     CommandEvent.aggregate([
       { $match: { botId, timestamp: { $gte: startOfDay, $lte: endOfDay } } },
       { $group: { _id: '$locale', count: { $sum: 1 } } }
+    ]),
+    CommandEvent.aggregate([
+      { $match: { botId, timestamp: { $gte: startOfDay, $lte: endOfDay } } },
+      { $group: { _id: '$countryCode', count: { $sum: 1 } } }
     ])
   ]);
 
@@ -52,10 +56,15 @@ async function aggregateForBot(botId: string, date: Date) {
   // Expected heartbeats in 24h (1 every 30s) = 2880
   const uptime = Math.min(100, (heartbeats / 2880) * 100);
 
-  // 4. Locales Record
+  // 4. Locales & Countries Record
   const localeMap: Record<string, number> = {};
   localesAgg.forEach(l => {
     if (l._id) localeMap[l._id] = l.count;
+  });
+
+  const countryMap: Record<string, number> = {};
+  countriesAgg.forEach(c => {
+    if (c._id) countryMap[c._id] = c.count;
   });
 
   // 5. Upsert Summary
@@ -67,6 +76,7 @@ async function aggregateForBot(botId: string, date: Date) {
       topCommands: topCommandsAgg.map(c => ({ command: c._id, count: c.count })),
       topServers: topServersAgg.map(s => ({ guildId: s._id, name: s.name || 'Unknown Server', count: s.count })),
       locales: localeMap,
+      countries: countryMap,
       uptime
     },
     { upsert: true }

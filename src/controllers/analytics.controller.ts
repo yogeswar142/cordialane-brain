@@ -3,6 +3,7 @@ import { Bot, CommandEvent, GuildCount, Heartbeat, Revenue, DailySummary, Legacy
 import type { TrackCommandInput, GuildCountInput, HeartbeatInput, TrackBatchInput } from '../validators/schemas';
 import { redis } from '../lib/redis';
 import { getRetentionData } from '../services/retentionStats';
+import { resolveCountryCode } from '../utils/locale';
 
 const VERIFICATION_THRESHOLD = 5;
 const DEFAULT_SHARD_ID = 0;
@@ -150,6 +151,7 @@ export const trackCommand = async (req: Request, res: Response): Promise<void> =
       guildId,
       guildName,
       locale,
+      countryCode: resolveCountryCode(locale),
       timestamp: new Date(timestamp)
     });
 
@@ -271,6 +273,7 @@ export const trackBatch = async (req: Request, res: Response): Promise<void> => 
         totalShards: normalizedShard.totalShards,
         guildName: event.guildName,
         locale: event.locale,
+        countryCode: resolveCountryCode(event.locale),
         timestamp: eventTimestamp,
       };
       
@@ -440,6 +443,7 @@ export const getBotSummary = async (req: Request, res: Response): Promise<void> 
       liveTopCommands,
       liveTopServers,
       liveLocales,
+      liveCountries,
       revenueByDayAgg,
       totalRevenueCurrentAgg,
       totalRevenuePrevAgg,
@@ -472,6 +476,10 @@ export const getBotSummary = async (req: Request, res: Response): Promise<void> 
       CommandEvent.aggregate([
         { $match: { botId: requestedBotId, timestamp: { $gte: startOfToday } } },
         { $group: { _id: '$locale', count: { $sum: 1 } } }
+      ]),
+      CommandEvent.aggregate([
+        { $match: { botId: requestedBotId, timestamp: { $gte: startOfToday } } },
+        { $group: { _id: '$countryCode', count: { $sum: 1 } } }
       ]),
       Revenue.aggregate([
         { $match: { botId: requestedBotId, date: { $gte: rangeStart } } },
@@ -525,6 +533,26 @@ export const getBotSummary = async (req: Request, res: Response): Promise<void> 
     liveLocales.forEach(l => localeMap[l._id || 'Unknown'] = (localeMap[l._id || 'Unknown'] || 0) + l.count);
     const localeDistribution = Object.entries(localeMap).map(([locale, count]) => ({ locale, count })).sort((a, b) => b.count - a.count);
 
+    // Countries Merge
+    const countryMap: Record<string, number> = {};
+    // Fallback: if historical summaries don't have countries yet, we can try to derive from locales
+    historicalSummaries.forEach(s => {
+      const countries = s.countries || {};
+      if (Object.keys(countries).length > 0) {
+        Object.entries(countries).forEach(([cc, count]) => countryMap[cc] = (countryMap[cc] || 0) + (count as number));
+      } else {
+        // Migration: derive from locales if countries field missing in old summary
+        Object.entries(s.locales || {}).forEach(([loc, count]) => {
+          const cc = resolveCountryCode(loc);
+          if (cc) countryMap[cc] = (countryMap[cc] || 0) + (count as number);
+        });
+      }
+    });
+    liveCountries.forEach(c => {
+      if (c._id) countryMap[c._id] = (countryMap[c._id] || 0) + c.count;
+    });
+    const countryDistribution = Object.entries(countryMap).map(([country, count]) => ({ country, count })).sort((a, b) => b.count - a.count);
+
     // Revenue Logic
     const currentRev = totalRevenueCurrentAgg[0]?.total || 0;
     const prevRev = totalRevenuePrevAgg[0]?.total || 0;
@@ -562,6 +590,7 @@ export const getBotSummary = async (req: Request, res: Response): Promise<void> 
           topCommands,
           topServers,
           localeDistribution,
+          countryDistribution,
           revenueData: {
             daily: revenueByDayAgg.map((r: any) => ({ date: r._id, amount: r.total / 100 })),
             total: currentRev / 100,
@@ -578,6 +607,35 @@ export const getBotSummary = async (req: Request, res: Response): Promise<void> 
     res.status(200).json(responsePayload);
   } catch (error) {
     console.error('Error building bot summary:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+};
+
+export const searchBots = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const query = req.query.q as string;
+
+    if (!query || typeof query !== 'string') {
+      res.status(400).json({ success: false, error: 'search query "q" is required' });
+      return;
+    }
+
+    // Sanitize query for regex and perform case-insensitive search on name
+    const sanitizedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const bots = await Bot.find({
+      name: { $regex: sanitizedQuery, $options: 'i' },
+      isPublic: true // Only allow searching public bots via API
+    })
+      .select('botId name description avatar verified createdAt')
+      .limit(20)
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      data: bots
+    });
+  } catch (error) {
+    console.error('Error searching bots:', error);
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 };

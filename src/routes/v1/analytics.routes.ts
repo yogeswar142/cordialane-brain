@@ -2,11 +2,14 @@ import { Router } from 'express';
 import { requireApiKey } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
 import { trackCommandSchema, guildCountSchema, heartbeatSchema, trackBatchSchema } from '../../validators/schemas';
-import { trackCommand, legacyTrackUser, postGuildCount, heartbeat, trackBatch, getBotSummary } from '../../controllers/analytics.controller';
+import { trackCommand, legacyTrackUser, postGuildCount, heartbeat, trackBatch, getBotSummary, searchBots } from '../../controllers/analytics.controller';
 
 const router = Router();
 
-// Apply the API Key middleware to all analytics routes
+// Public routes (no API key required)
+router.get('/search', searchBots);
+
+// Apply the API Key middleware to all subsequent analytics routes
 router.use(requireApiKey);
 
 // Routes with Zod validation middleware applied before controllers

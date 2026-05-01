@@ -6,6 +6,7 @@ export interface IDailySummary extends Document {
   commands: number;
   dau: number;
   locales: Record<string, number>;
+  countries: Record<string, number>;
   topCommands: Array<{ command: string; count: number }>;
   topServers: Array<{ guildId: string; name: string; count: number }>;
   uptime: number; // percentage (0-100)
@@ -19,6 +20,7 @@ const dailySummarySchema = new Schema(
     commands: { type: Number, default: 0 },
     dau: { type: Number, default: 0 },
     locales: { type: Schema.Types.Mixed, default: {} },
+    countries: { type: Schema.Types.Mixed, default: {} },
     topCommands: [{ command: String, count: Number }],
     topServers: [{ guildId: String, name: String, count: Number }],
     uptime: { type: Number, default: 0 },
