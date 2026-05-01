@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { requireApiKey } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
-import { trackCommandSchema, trackUserSchema, guildCountSchema, heartbeatSchema, trackBatchSchema } from '../../validators/schemas';
-import { trackCommand, trackUser, postGuildCount, heartbeat, trackBatch, getBotSummary } from '../../controllers/analytics.controller';
+import { trackCommandSchema, guildCountSchema, heartbeatSchema, trackBatchSchema } from '../../validators/schemas';
+import { trackCommand, legacyTrackUser, postGuildCount, heartbeat, trackBatch, getBotSummary } from '../../controllers/analytics.controller';
 
 const router = Router();
 
@@ -12,7 +12,7 @@ router.use(requireApiKey);
 // Routes with Zod validation middleware applied before controllers
 router.get('/bot/:id/summary', getBotSummary);
 router.post('/track-command', validate(trackCommandSchema), trackCommand);
-router.post('/track-user', validate(trackUserSchema), trackUser);
+router.post('/track-user', legacyTrackUser); // Legacy Support — returns 200 OK
 router.post('/guild-count', validate(guildCountSchema), postGuildCount);
 router.post('/heartbeat', validate(heartbeatSchema), heartbeat);
 router.post('/track-batch', validate(trackBatchSchema), trackBatch);

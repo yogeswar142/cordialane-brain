@@ -13,24 +13,15 @@ export const trackCommandSchema = z.object({
   command: z.string().min(1, 'command must be a non-empty string'),
   userId: z.string().nullable().optional(),
   guildId: z.string().nullable().optional(),
+  guildName: z.string().nullable().optional(),
+  locale: z.string().nullable().optional(),
   timestamp: z.string().datetime({ message: 'timestamp must be a valid ISO 8601 date string' }),
   ...shardMetaSchema,
-});
+  });
 
-// ─────────────────────────────────────────────────────────────
-// Track User
-// ─────────────────────────────────────────────────────────────
-export const trackUserSchema = z.object({
-  botId: z.string().min(1, 'botId is required'),
-  userId: z.string().min(1, 'userId is required'),
-  guildId: z.string().nullable().optional(),
-  action: z.string().nullable().optional().default('interaction'),
-  timestamp: z.string().datetime({ message: 'timestamp must be a valid ISO 8601 date string' }),
-  ...shardMetaSchema,
-});
+  // ─────────────────────────────────────────────────────────────
+  // Heartbeat
 
-// ─────────────────────────────────────────────────────────────
-// Guild Count
 // ─────────────────────────────────────────────────────────────
 export const guildCountSchema = z.object({
   botId: z.string().min(1, 'botId is required'),
@@ -51,7 +42,6 @@ export const heartbeatSchema = z.object({
 
 // Inferred types for controller usage
 export type TrackCommandInput = z.infer<typeof trackCommandSchema>;
-export type TrackUserInput = z.infer<typeof trackUserSchema>;
 export type GuildCountInput = z.infer<typeof guildCountSchema>;
 export type HeartbeatInput = z.infer<typeof heartbeatSchema>;
 
@@ -68,10 +58,11 @@ const batchEventSchema = z.object({
   command: z.string().nullable().optional(),
   metadata: z.record(z.string(), z.unknown()).nullable().optional(),
 
-  // User event fields
+  // Context fields (Shared between Command and others)
   userId: z.string().nullable().optional(),
   guildId: z.string().nullable().optional(),
-  action: z.string().nullable().optional(),
+  guildName: z.string().nullable().optional(),
+  locale: z.string().nullable().optional(),
 
   // Guild count field
   count: z.number().nonnegative().finite().nullable().optional(),
@@ -90,12 +81,11 @@ const batchEventSchema = z.object({
     // At least one identifying field must be present to classify the event
     const hasType = data.type || data.event;
     const hasCommandField = !!data.command;
-    const hasUserField = !!data.userId;
     const hasCountField = data.count !== undefined;
     const hasUptimeField = data.uptime !== undefined;
-    return hasType || hasCommandField || hasUserField || hasCountField || hasUptimeField;
+    return hasType || hasCommandField || hasCountField || hasUptimeField;
   },
-  { message: 'Each event must have a type/event field or identifiable data fields (command, userId, count, uptime)' }
+  { message: 'Each event must have a type/event field or identifiable data fields (command, count, uptime)' }
 );
 
 // ─────────────────────────────────────────────────────────────

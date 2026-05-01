@@ -1,4 +1,4 @@
-import { UserEvent } from '../models';
+import { CommandEvent } from '../models';
 import type { RetentionCohortRow } from '../models/BotRetentionStats';
 
 type ComputeRetentionOptions = {
@@ -21,7 +21,7 @@ export async function computeRetentionData(
     const cohortLabel = cohortStart.toISOString().split('T')[0];
 
     // Users first seen within the cohort window (week)
-    const firstSeenPipeline = await UserEvent.aggregate([
+    const firstSeenPipeline = await CommandEvent.aggregate([
       { $match: { botId, timestamp: { $gte: cohortStart, $lt: cohortEnd } } },
       { $group: { _id: '$userId', firstSeen: { $min: '$timestamp' } } },
       { $match: { firstSeen: { $gte: cohortStart, $lt: cohortEnd } } },
@@ -36,12 +36,12 @@ export async function computeRetentionData(
     }
 
     const [day1Returned, day7Returned, day30Returned] = await Promise.all([
-      UserEvent.distinct('userId', {
+      CommandEvent.distinct('userId', {
         botId,
         userId: { $in: cohortUsers },
         timestamp: { $gte: cohortEnd, $lt: new Date(cohortEnd.getTime() + 24 * 60 * 60 * 1000) },
       }),
-      UserEvent.distinct('userId', {
+      CommandEvent.distinct('userId', {
         botId,
         userId: { $in: cohortUsers },
         timestamp: {
@@ -49,7 +49,7 @@ export async function computeRetentionData(
           $lt: new Date(cohortEnd.getTime() + 8 * 24 * 60 * 60 * 1000),
         },
       }),
-      UserEvent.distinct('userId', {
+      CommandEvent.distinct('userId', {
         botId,
         userId: { $in: cohortUsers },
         timestamp: {

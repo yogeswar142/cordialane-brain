@@ -1,9 +1,8 @@
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 
-import { CommandEvent, UserEvent, GuildCount } from '../models';
+import { CommandEvent, GuildCount } from '../models';
 import { CommandEventArchive } from '../models/CommandEventArchive';
-import { UserEventArchive } from '../models/UserEventArchive';
 import { GuildCountArchive } from '../models/GuildCountArchive';
 
 dotenv.config();
@@ -82,7 +81,6 @@ async function main() {
   const baseQuery = { createdAt: { $lt: cutoff } };
 
   await archiveInBatches(CommandEvent, CommandEventArchive, baseQuery);
-  await archiveInBatches(UserEvent, UserEventArchive, baseQuery);
   await archiveInBatches(GuildCount, GuildCountArchive, baseQuery);
 
   console.log('✅ Telemetry archiving finished.');

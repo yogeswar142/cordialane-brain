@@ -14,9 +14,6 @@ export type { IGuildCount } from './GuildCount';
 export { Heartbeat } from './Heartbeat';
 export type { IHeartbeat } from './Heartbeat';
 
-export { UserEvent } from './UserEvent';
-export type { IUserEvent } from './UserEvent';
-
 export { Post } from './Post';
 export type { IPost } from './Post';
 

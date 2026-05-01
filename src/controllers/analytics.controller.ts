@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { Bot, CommandEvent, UserEvent, GuildCount, Heartbeat, Revenue } from '../models';
-import type { TrackCommandInput, TrackUserInput, GuildCountInput, HeartbeatInput, TrackBatchInput } from '../validators/schemas';
+import { Bot, CommandEvent, GuildCount, Heartbeat, Revenue } from '../models';
+import type { TrackCommandInput, GuildCountInput, HeartbeatInput, TrackBatchInput } from '../validators/schemas';
 import { redis } from '../lib/redis';
 import { getRetentionData } from '../services/retentionStats';
 
@@ -133,7 +133,7 @@ const incrementApiCallsAndVerify = async (botId: string, amount: number = 1) => 
 
 export const trackCommand = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { botId: bodyBotId, command, userId, guildId, timestamp, shardId, totalShards } = req.body as TrackCommandInput;
+    const { botId: bodyBotId, command, userId, guildId, guildName, locale, timestamp, shardId, totalShards } = req.body as TrackCommandInput;
     const { botId, mismatch } = resolveBotId(req, bodyBotId);
     if (mismatch) {
       res.status(400).json({ success: false, error: 'botId in body must match authenticated bot id' });
@@ -148,6 +148,8 @@ export const trackCommand = async (req: Request, res: Response): Promise<void> =
       command,
       userId,
       guildId,
+      guildName,
+      locale,
       timestamp: new Date(timestamp)
     });
 
@@ -160,33 +162,12 @@ export const trackCommand = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-export const trackUser = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { botId: bodyBotId, userId, guildId, action, timestamp, shardId, totalShards } = req.body as TrackUserInput;
-    const { botId, mismatch } = resolveBotId(req, bodyBotId);
-    if (mismatch) {
-      res.status(400).json({ success: false, error: 'botId in body must match authenticated bot id' });
-      return;
-    }
-    const normalizedShard = normalizeShardMeta({ shardId, totalShards });
-
-    await UserEvent.create({
-      botId,
-      shardId: normalizedShard.shardId,
-      totalShards: normalizedShard.totalShards,
-      userId,
-      guildId,
-      action,
-      timestamp: new Date(timestamp)
-    });
-
-    await incrementApiCallsAndVerify(botId);
-
-    res.status(200).json({ success: true, message: 'User event tracked' });
-  } catch (error) {
-    console.error('Error tracking user:', error);
-    res.status(500).json({ success: false, error: 'Internal server error' });
-  }
+/**
+ * Legacy handler for older SDKs. Returns success but does NOT persist data.
+ * This prevents old SDKs from retrying indefinitely on 404/500 errors.
+ */
+export const legacyTrackUser = async (req: Request, res: Response): Promise<void> => {
+  res.status(200).json({ success: true, message: 'User event tracked (legacy)' });
 };
 
 export const postGuildCount = async (req: Request, res: Response): Promise<void> => {
@@ -273,12 +254,8 @@ export const trackBatch = async (req: Request, res: Response): Promise<void> => 
     }
 
     const commands: any[] = [];
-    const users: any[] = [];
     const guildCounts: any[] = [];
     const heartbeats: any[] = [];
-
-    // Simple anti-spam: track unique users in this batch to prevent duplicates
-    const uniqueUsersInBatch = new Set<string>();
 
     for (const event of events) {
       const normalizedShard = normalizeShardMeta({
@@ -292,6 +269,8 @@ export const trackBatch = async (req: Request, res: Response): Promise<void> => 
         botId,
         shardId: normalizedShard.shardId,
         totalShards: normalizedShard.totalShards,
+        guildName: event.guildName,
+        locale: event.locale,
         timestamp: eventTimestamp,
       };
       
@@ -300,15 +279,6 @@ export const trackBatch = async (req: Request, res: Response): Promise<void> => 
 
       if (eventType === 'command' || eventType === 'command_used' || (!eventType && event.command)) {
         commands.push(data);
-      } else if (eventType === 'user' || eventType === 'user_active' || (event.userId && event.action)) {
-        // Only add if we haven't seen this user in this specific batch yet
-        const userId = (data as any).userId as unknown;
-        if (typeof userId === 'string' && userId.length > 0) {
-          if (!uniqueUsersInBatch.has(userId)) {
-            users.push(data);
-            uniqueUsersInBatch.add(userId);
-          }
-        }
       } else if (eventType === 'guildCount' || eventType === 'guild_count' || event.count !== undefined) {
         guildCounts.push(data);
         await upsertBotShardSnapshot(botId, normalizedShard.shardId, normalizedShard.totalShards, {
@@ -329,7 +299,6 @@ export const trackBatch = async (req: Request, res: Response): Promise<void> => 
     const promises = [];
     // ordered: false — continue inserting remaining docs if one fails (fault-tolerant batch processing)
     if (commands.length > 0) promises.push(CommandEvent.insertMany(commands, { ordered: false }));
-    if (users.length > 0) promises.push(UserEvent.insertMany(users, { ordered: false }));
     if (guildCounts.length > 0) promises.push(GuildCount.insertMany(guildCounts, { ordered: false }));
     if (heartbeats.length > 0) promises.push(Heartbeat.insertMany(heartbeats, { ordered: false }));
 
@@ -452,9 +421,12 @@ export const getBotSummary = async (req: Request, res: Response): Promise<void> 
       revenueByDayAgg,
       totalRevenueCurrentAgg,
       totalRevenuePrevAgg,
+      topCommandsAgg,
+      topServersAgg,
+      localeDistAgg,
     ] = await Promise.all([
       CommandEvent.countDocuments({ botId: requestedBotId, timestamp: { $gte: oneWeekAgo } }),
-      UserEvent.distinct('userId', { botId: requestedBotId, timestamp: { $gte: oneDayAgo } }),
+      CommandEvent.distinct('userId', { botId: requestedBotId, timestamp: { $gte: oneDayAgo } }),
       Heartbeat.countDocuments({ botId: requestedBotId, timestamp: { $gte: oneDayAgo } }),
       CommandEvent.aggregate([
         { $match: { botId: requestedBotId, timestamp: { $gte: oneWeekAgo } } },
@@ -495,6 +467,29 @@ export const getBotSummary = async (req: Request, res: Response): Promise<void> 
       Revenue.aggregate([
         { $match: { botId: requestedBotId, date: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } } },
         { $group: { _id: null, total: { $sum: '$amount' } } },
+      ]),
+      CommandEvent.aggregate([
+        { $match: { botId: requestedBotId, timestamp: { $gte: thirtyDaysAgo } } },
+        { $group: { _id: '$command', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 }
+      ]),
+      CommandEvent.aggregate([
+        { $match: { botId: requestedBotId, timestamp: { $gte: thirtyDaysAgo } } },
+        { 
+          $group: { 
+            _id: '$guildId', 
+            name: { $first: '$guildName' },
+            count: { $sum: 1 } 
+          } 
+        },
+        { $sort: { count: -1 } },
+        { $limit: 10 }
+      ]),
+      CommandEvent.aggregate([
+        { $match: { botId: requestedBotId, timestamp: { $gte: thirtyDaysAgo } } },
+        { $group: { _id: '$locale', count: { $sum: 1 } } },
+        { $sort: { count: -1 } }
       ]),
     ]);
 
@@ -545,6 +540,16 @@ export const getBotSummary = async (req: Request, res: Response): Promise<void> 
           })),
           shardGuildDistribution: shards.map((s) => ({ shard: s.id, guilds: s.guildCount || 0 })),
           shardCommandVolume: shardCommandVolumeAgg.map((s: any) => ({ shard: s._id, commands: s.count })),
+          topCommands: topCommandsAgg.map((c: any) => ({ command: c._id, count: c.count })),
+          topServers: topServersAgg.map((s: any) => ({ 
+            guildId: s._id, 
+            name: s.name || 'Unknown Server', 
+            count: s.count 
+          })),
+          localeDistribution: localeDistAgg.map((l: any) => ({ 
+            locale: l._id || 'Unknown', 
+            count: l.count 
+          })),
           revenueData: {
             daily: revenueByDayAgg.map((r: any) => ({ date: r._id, amount: r.total / 100 })),
             total: currentRev / 100,

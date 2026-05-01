@@ -7,6 +7,8 @@ export interface ICommandEvent extends Document {
   command: string;
   userId?: string;
   guildId?: string;
+  guildName?: string;
+  locale?: string;
   timestamp: Date;
   createdAt: Date;
 }
@@ -19,6 +21,8 @@ const commandEventSchema = new Schema(
     command: { type: String, required: true },
     userId: { type: String },
     guildId: { type: String },
+    guildName: { type: String },
+    locale: { type: String },
     timestamp: { type: Date, required: true },
   },
   { timestamps: { createdAt: true, updatedAt: false } }

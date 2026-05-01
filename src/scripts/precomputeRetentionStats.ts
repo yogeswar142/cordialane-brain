@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 
-import { Bot, UserEvent, BotRetentionStats } from '../models';
+import { Bot, CommandEvent, BotRetentionStats } from '../models';
 import { computeRetentionData } from '../services/retention';
 
 dotenv.config();
@@ -18,9 +18,9 @@ async function main() {
   await mongoose.connect(MONGO_URI);
   console.log(`✅ Connected to MongoDB: ${MONGO_URI}`);
 
-  // Bots with at least one user event in the lookback window.
+  // Bots with at least one command event in the lookback window.
   const lookbackStart = new Date(Date.now() - ACTIVE_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
-  let botIds = (await UserEvent.distinct('botId', { timestamp: { $gte: lookbackStart } })) as string[];
+  let botIds = (await CommandEvent.distinct('botId', { timestamp: { $gte: lookbackStart } })) as string[];
 
   // Optional: only compute for verified bots to reduce load.
   const verifiedBotIds = await Bot.distinct('botId', { botId: { $in: botIds }, verified: true } as any);
