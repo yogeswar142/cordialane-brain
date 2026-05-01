@@ -17,8 +17,8 @@ router.get('/verify', requireApiKey, (req, res) => {
     botId: (req as any).bot.botId,
     botName: (req as any).bot.name,
     versioning: {
-      latestSdkVersion: '1.2.1',
-      minRecommendedVersion: '1.2.0'
+      latestSdkVersion: '1.2.2',
+      minRecommendedVersion: '1.2.1'
     }
   });
 });
