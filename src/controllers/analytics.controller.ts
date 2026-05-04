@@ -473,8 +473,7 @@ export const getBotSummary = async (req: Request, res: Response): Promise<void> 
 
     // ─── Aggregated Stats Logic (Hybrid: Summary + Live) ───
     const now = new Date();
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+    const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
     const rangeStart = new Date(now.getTime() - rangeDays * 24 * 60 * 60 * 1000);
     const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);

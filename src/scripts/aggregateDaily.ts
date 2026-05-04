@@ -8,10 +8,8 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/cordia';
 const SAFETY_WINDOW_HOURS = 48; // Keep raw data for 48 hours
 
 async function aggregateForBot(botId: string, date: Date) {
-  const startOfDay = new Date(date);
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(date);
-  endOfDay.setHours(23, 59, 59, 999);
+  const startOfDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0));
+  const endOfDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59, 999));
   const dateStr = startOfDay.toISOString().split('T')[0];
 
   console.log(`   - Aggregating for ${dateStr}`);
@@ -104,10 +102,8 @@ export async function runDailyAggregation(forceDate?: Date) {
   }
 
   // Target "Yesterday" or the forced date
-  const targetDate = forceDate || new Date();
-  if (!forceDate) {
-    targetDate.setDate(targetDate.getDate() - 1);
-  }
+  const now = new Date();
+  const targetDate = forceDate || new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1));
 
   const bots = await Bot.find({}).lean();
   console.log(`🚀 Starting Daily Aggregation for ${bots.length} bots...`);
